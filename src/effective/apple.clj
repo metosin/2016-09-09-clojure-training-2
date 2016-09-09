@@ -9,6 +9,15 @@
             [schema.core :as s]))
 
 ;;
+;; TODO:
+;; * add schema coercion (schema.coerce or ring.swagger.coerce)
+;; * externalize json / format / content-negotiation
+;; * add tests
+;; * async example
+;; * add data layers (server, components, etc.) on top
+;;
+
+;;
 ;; Example application
 ;;
 
