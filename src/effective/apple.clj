@@ -4,6 +4,7 @@
             [ring.util.http-response :as response]
             [clout.core :as clout]
             [clojure.walk :as walk]
+            [manifold.deferred :as d]
             [cheshire.core :as json]
             [aleph.http.server :as server]
             [schema.core :as s]))
@@ -39,8 +40,15 @@
   (response/ok (json/generate-string {:pong true})))
 
 (defn get-apple [request]
-  (response/ok
-    (format "here's the apple %s" (-> request :path-parameters :id))))
+  (let [timeout (rand-int 1000)]
+    (d/timeout!
+      (d/deferred)
+      timeout
+      (response/ok
+        (format
+          "here's the apple %s after %s ms"
+          (-> request :path-parameters :id)
+          timeout)))))
 
 (def application
   {:info {:version "1.0.0"
