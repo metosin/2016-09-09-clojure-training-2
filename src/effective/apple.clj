@@ -2,6 +2,7 @@
   (:require [ring.swagger.swagger2 :as swagger2]
             [ring.swagger.ui :as swagger-ui]
             [ring.util.http-response :as response]
+            [clout.core :as clout]
             [clojure.walk :as walk]
             [cheshire.core :as json]
             [aleph.http.server :as server]
@@ -27,6 +28,10 @@
 
 (defn ping-handler [request]
   (response/ok (json/generate-string {:pong true})))
+
+(defn get-apple [request]
+  (response/ok
+    (format "here's the apple %s" (-> request :path-parameters :id))))
 
 (def application
   {:info {:version "1.0.0"
@@ -56,6 +61,7 @@
                              :responses {200 {:schema [Apple]
                                               :description "The apple"}}}}
            "/apples/:id" {:get {:summary "Get a apple"
+                                ::handler get-apple
                                 :description "404 ifnot"
                                 :tags ["apple"]
                                 :parameters {:path {:id s/Int}}
@@ -64,20 +70,29 @@
                                             404 {:schema ErrorResponse
                                                  :description "Not found"}}}}}})
 
-(defn create-router [application]
-  (into {} (for [[path data] (:paths application)
-                 [method endpoint] data]
-             [[path method] endpoint])))
+(defn compile-routes [application]
+  (for [[path data] (:paths application)
+        [method endpoint] data
+        :let [compiled-route (clout/route-compile path)]]
+    [compiled-route method (::handler endpoint) endpoint]))
 
 ;;
 ;; the dispatcher
 ;;
 
 (defn create-api-routes [application]
-  (let [router (create-router application)]
-    (fn [{:keys [uri request-method] :as request}]
-      (if-let [handler (::handler (router [uri request-method]))]
-        (handler request)
+  (let [routes (compile-routes application)]
+    (fn [request]
+      (or
+        (reduce
+          (fn [_ [route method handler _]]
+            (if-let [info (and
+                            handler
+                            (= method (:request-method request))
+                            (clout/route-matches route request))]
+              (reduced (handler (assoc request :path-parameters info)))))
+          nil
+          routes)
         (response/not-found)))))
 
 ;;
