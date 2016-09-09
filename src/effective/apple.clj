@@ -2,6 +2,7 @@
   (:require [ring.swagger.swagger2 :as swagger2]
             [ring.swagger.ui :as swagger-ui]
             [ring.util.http-response :as response]
+            [clojure.walk :as walk]
             [cheshire.core :as json]
             [aleph.http.server :as server]
             [schema.core :as s]))
@@ -24,6 +25,9 @@
   {:code s/Int
    :message s/Str})
 
+(defn ping-handler [request]
+  (response/ok (json/generate-string {:pong true})))
+
 (def application
   {:info {:version "1.0.0"
           :title "Apples"
@@ -36,16 +40,18 @@
                     :url "http://www.eclipse.org/legal/epl-v10.html"}}
    :tags [{:name "apple"
            :description "Apple api"}]
-   :paths {"/api/ping" {:get {}}
+   :paths {"/api/ping" {:get {::handler ping-handler}}
            "/apples" {:get {:summary "Lists apples"
                             :description "Returns emptly is if none match"
                             :tags ["apple"]
                             :parameters {}
+                            ::handler (fn [request] (response/ok "apples!"))
                             :responses {200 {:schema [Apple]
                                              :description "Here be apples"}}}
                       :post {:summary "New apple"
                              :description "Creates a new apple"
                              :tags ["apple"]
+                             ::handler (constantly "new apple")
                              :parameters {:body NewApple}
                              :responses {200 {:schema [Apple]
                                               :description "The apple"}}}}
@@ -58,13 +64,21 @@
                                             404 {:schema ErrorResponse
                                                  :description "Not found"}}}}}})
 
+(defn create-router [application]
+  (into {} (for [[path data] (:paths application)
+                 [method endpoint] data]
+             [[path method] endpoint])))
+
 ;;
 ;; the dispatcher
 ;;
 
 (defn create-api-routes [application]
-  (fn [request]
-    (response/not-found)))
+  (let [router (create-router application)]
+    (fn [{:keys [uri request-method] :as request}]
+      (if-let [handler (::handler (router [uri request-method]))]
+        (handler request)
+        (response/not-found)))))
 
 ;;
 ;; swagger.json & swagger-ui
@@ -80,12 +94,23 @@
         (json/generate-string
           (swagger2/swagger-json swagger-data))))))
 
+(defn- as-ring-swagger-json
+  "we remove all our extra (namespaced) keys to make the spec valid"
+  [application]
+  (walk/postwalk
+    (fn [x]
+      (if (map? x) (dissoc x ::handler) x))
+    application))
+
 ;;
 ;; bootstrapping the application
 ;;
 
 (defn create-app [application]
-  (create-api-routes application))
+  (some-fn
+    (create-swagger-json-handler (as-ring-swagger-json application))
+    (create-swagger-ui-handler "/")
+    (create-api-routes application)))
 
 (def app (create-app application))
 
