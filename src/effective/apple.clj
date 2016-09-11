@@ -6,7 +6,7 @@
             [clojure.walk :as walk]
             [manifold.deferred :as d]
             [cheshire.core :as json]
-            [aleph.http.server :as server]
+            [aleph.http :as http]
             [schema.core :as s]))
 
 ;;
@@ -14,7 +14,6 @@
 ;; * add schema coercion (schema.coerce or ring.swagger.coerce)
 ;; * externalize json / format / content-negotiation
 ;; * add tests
-;; * async example
 ;; * add data layers (server, components, etc.) on top
 ;;
 
@@ -50,6 +49,13 @@
           (-> request :path-parameters :id)
           timeout)))))
 
+(defn random-user-async [request]
+  (d/chain
+    (http/get "https://randomuser.me/api?results=1")
+    :body
+    response/ok
+    #(response/content-type % "application/json")))
+
 (def application
   {:info {:version "1.0.0"
           :title "Apples"
@@ -63,6 +69,7 @@
    :tags [{:name "apple"
            :description "Apple api"}]
    :paths {"/api/ping" {:get {::handler ping-handler}}
+           "/api/random-user-async" {:get {::handler random-user-async}}
            "/apples" {:get {:summary "Lists apples"
                             :description "Returns emptly is if none match"
                             :tags ["apple"]
