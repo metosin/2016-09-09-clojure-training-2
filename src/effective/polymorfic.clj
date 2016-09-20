@@ -10,17 +10,38 @@
 
 ;; say - multimethod on ::type
 
+(defmulti say ::type)
+
 ;; implement them for duck and frog
+
+(defmethod say :duck [{:keys [name]}]
+  (format "duck %s says quack" name))
+
+(defmethod say :frog [{:keys [name]}]
+  (format "forg %s says croak" name))
 
 ;; what does the frog say?
 
+(say frog)
+
 ;; what does the duck say?
+
+(say duck)
 
 ;; what does the cow say?
 
+#_(say cow)
+
 ;; implement default to nil
 
+(defmethod say :default [_] nil)
+
+(clojure.pprint/pprint
+  (methods say))
+
 ;; what does the cow say now?
+
+(say cow)
 
 ;;
 ;; Protocols
@@ -44,12 +65,28 @@
 
 ;; can the elephant fly?
 
+(satisfies? Flyer elephant)
+(satisfies? Flyer bird)
+
 ;; make the bird fly
+
+(fly bird 12)
 
 ;; Well, Elephants should be able to fly too
 
+(extend-protocol Flyer
+  Elephant
+  (fly [{:keys [name]} distance]
+    (format "elepahnt %s flew %s meters" name distance))
+
+  String
+  (fly [_ _] "String flew away the coocoo's nest!"))
+
 ;; fly the elephant
 
+(fly elephant 2)
+
+(fly "kikka" 1)
 
 ;;
 ;; Keyword hierarchies
@@ -61,9 +98,23 @@
 ;; ::programmer is ::happy
 ;; ::boss is
 
+(derive ::designer ::happy)
+(derive ::ui-designer ::designer)
+(derive ::ux-designer ::designer)
+(derive ::programmer ::happy)
+
 ;; who is ::happy?
+
+(descendants ::happy)
 
 ;; who are ::designers?
 
+(descendants ::designer)
+
 ;; is ::ux-designer ::happy?
 
+(isa? ::ux-designer ::happy)
+
+(derive String ::happy)
+
+(isa? String ::happy)

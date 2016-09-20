@@ -7,10 +7,24 @@
 (def request {:headers {"Content-type" "application/json"}})
 
 (defn content-type [request]
-  (get-in request [:headers "Content-type"]))
+  (get (:headers request) "Content-type"))
 
-(def pam (apply array-map (map identity (zipmap (range 1000) (range 1000)))))
-(def phm (apply hash-map (map identity (zipmap (range 1000) (range 1000)))))
+(defn content-type2 [request]
+  (-> request :headers (get "Content-type")))
+
+(macroexpand-1
+  `(-> request :headers (get "Content-type")))
+
+(time
+  (dotimes [_ 1000000]
+    (content-type request)))
+
+(time
+  (dotimes [_ 1000000]
+    (content-type2 request)))
+
+(def pam (apply array-map (mapcat identity (zipmap (range 1000) (range 1000)))))
+(def phm (apply hash-map (mapcat identity (zipmap (range 1000) (range 1000)))))
 
 (def plus1-times2-minus1
   (comp
@@ -19,6 +33,7 @@
     (map dec)))
 
 (comment
+
   (cc/quick-bench
     (into [] plus1-times2-minus1 (range 1000000)))
 
