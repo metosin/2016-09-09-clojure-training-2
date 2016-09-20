@@ -97,8 +97,10 @@
 (defn compile-routes [application]
   (for [[path data] (:paths application)
         [method endpoint] data
-        :let [compiled-route (clout/route-compile path)]]
-    [compiled-route method (::handler endpoint) endpoint]))
+        :let [compiled-route (clout/route-compile path)
+              handler (::handler endpoint)]
+        :when handler]
+    [compiled-route method handler endpoint]))
 
 ;;
 ;; the dispatcher
@@ -108,14 +110,12 @@
   (let [routes (compile-routes application)]
     (fn [request]
       (or
-        (reduce
+        (some
           (fn [_ [route method handler _]]
             (if-let [info (and
-                            handler
                             (= method (:request-method request))
                             (clout/route-matches route request))]
-              (reduced (handler (assoc request :path-parameters info)))))
-          nil
+              (handler (assoc request :path-parameters info))))
           routes)
         (response/not-found)))))
 
